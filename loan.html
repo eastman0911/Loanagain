@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Architect - Interactive Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .contract-font {
+            font-family: 'Courier Prime', monospace;
+        }
+
+        /* Control Panel Styling */
+        .joystick-panel {
+            background: linear-gradient(145deg, #1a1c1e, #0f1011);
+            border-right: 1px solid #333;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        /* Range Slider Customization */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #6366f1; /* Indigo thumb */
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+            border: 2px solid #fff;
+            transition: transform 0.1s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+
+        /* Contract Paper Effect */
+        .contract-viewport {
+            background-color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .contract-paper {
+            background-color: #fff;
+            width: 100%;
+            max-width: 800px;
+            min-height: 1000px;
+            padding: 60px 80px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .highlight-change {
+            background-color: #fef08a; /* yellow-200 */
+            transition: background-color 0.4s ease;
+        }
+
+        /* Tooltip style labels */
+        .lever-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #9ca3af;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+
+    <!-- LEFT PANEL: Controls (40% width) -->
+    <aside class="w-[40%] joystick-panel flex flex-col p-8 overflow-y-auto">
+        <header class="mb-10">
+            <h1 class="text-2xl font-black text-white tracking-tighter uppercase italic">
+                Loan <span class="text-indigo-500">Architect</span>
+            </h1>
+            <p class="text-gray-500 text-xs mt-1">Simulate financial legalities in real-time.</p>
+        </header>
+
+        <div class="space-y-10 flex-grow">
+            <!-- Amount Lever -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <label class="lever-label">1. Principal Amount</label>
+                    <span id="val-amount" class="text-indigo-400 font-mono font-bold">$10,000</span>
+                </div>
+                <input type="range" id="input-amount" min="1000" max="100000" step="1000" value="10000">
+            </div>
+
+            <!-- Interest Lever -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <label class="lever-label">2. Annual Interest Rate</label>
+                    <span id="val-rate" class="text-indigo-400 font-mono font-bold">5.0%</span>
+                </div>
+                <input type="range" id="input-rate" min="0" max="30" step="0.1" value="5">
+            </div>
+
+            <!-- Schedule Lever -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <label class="lever-label">3. Repayment Schedule</label>
+                    <span id="val-installments" class="text-indigo-400 font-mono font-bold">12 Months</span>
+                </div>
+                <input type="range" id="input-installments" min="3" max="120" step="3" value="12">
+            </div>
+
+            <!-- Late Fee Lever -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <label class="lever-label">4. Late Fee Penalty</label>
+                    <span id="val-latefee" class="text-indigo-400 font-mono font-bold">$50</span>
+                </div>
+                <input type="range" id="input-latefee" min="0" max="1000" step="25" value="50">
+            </div>
+
+            <!-- Default Lever -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-end">
+                    <label class="lever-label">5. Grace Period (Days)</label>
+                    <span id="val-grace" class="text-indigo-400 font-mono font-bold">30 Days</span>
+                </div>
+                <input type="range" id="input-grace" min="1" max="180" step="1" value="30">
+            </div>
+        </div>
+
+        <!-- Data Dashboard -->
+        <div class="mt-12 bg-black bg-opacity-40 p-5 rounded-xl border border-gray-800">
+            <h3 class="lever-label mb-4">Financial Projections</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Monthly Payment</p>
+                    <p id="calc-monthly" class="text-xl font-bold text-white font-mono">$856.07</p>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-500 uppercase">Total Interest</p>
+                    <p id="calc-interest" class="text-xl font-bold text-emerald-500 font-mono">$272.84</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- RIGHT PANEL: Contract View (60% width) -->
+    <main class="w-[60%] contract-viewport">
+        <div class="contract-paper contract-font text-gray-900 text-[13px] leading-relaxed">
+            
+            <!-- Contract Header -->
+            <div class="text-center mb-12 border-b-2 border-black pb-6">
+                <h2 class="text-2xl font-bold uppercase tracking-widest">Bank Loan Contract</h2>
+                <div class="flex justify-between text-[10px] mt-4 font-sans font-bold text-gray-500">
+                    <span>DOC ID: #GTB-2024-X9</span>
+                    <span>RESTRICTED ACCESS</span>
+                </div>
+            </div>
+
+            <p class="mb-8">
+                This Loan Contract ("Contract") is made and entered into on <span class="border-b border-gray-400 px-1 font-bold" id="doc-date">January 1, 2024</span>, between <strong>Global Trust Bank Corp</strong>, with a principal place of business at 100 Financial Way, Metropolis, hereinafter referred to as the "Lender," and <strong>[Borrower's Name]</strong>, residing at [Borrower's Address], hereinafter referred to as the "Borrower."
+            </p>
+
+            <div class="space-y-8">
+                <!-- Section 1 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">1. Loan Amount:</h3>
+                    <p>The Lender agrees to provide a loan amount of <span class="bg-yellow-50 px-1 font-bold border-b border-black" id="doc-amount">$10,000.00</span> to the Borrower, to be disbursed in a single installment upon signing of this agreement.</p>
+                </section>
+
+                <!-- Section 2 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">2. Interest Rate:</h3>
+                    <p>The loan will be subject to an annual interest rate of <span class="bg-yellow-50 px-1 font-bold border-b border-black" id="doc-rate">5.0%</span>, calculated on the outstanding principal balance. The interest will be compounded monthly throughout the term of the loan.</p>
+                </section>
+
+                <!-- Section 3 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">3. Repayment Terms:</h3>
+                    <div class="pl-6 border-l border-gray-200">
+                        <p class="mb-4"><strong>a. Repayment Schedule:</strong> The Borrower agrees to repay the loan in <span class="bg-yellow-50 px-1 font-bold border-b border-black" id="doc-installments">12</span> equal installments, with the first payment due on the first day of the following month.</p>
+                        <p><strong>b. Late Payment:</strong> In the event of a late payment, the Borrower shall be liable to pay a late fee of <span class="bg-yellow-50 px-1 font-bold border-b border-black" id="doc-latefee">$50.00</span>, which will be added to the outstanding loan balance upon each occurrence.</p>
+                    </div>
+                </section>
+
+                <!-- Section 4 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">4. Prepayment:</h3>
+                    <p>The Borrower may prepay the outstanding loan amount at any time, in part or in full, without incurring any penalty or additional charges from the Lender.</p>
+                </section>
+
+                <!-- Section 5 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">5. Default:</h3>
+                    <div class="pl-6 border-l border-gray-200">
+                        <p class="mb-4"><strong>a. Default Event:</strong> The Borrower shall be considered in default if they fail to make a payment within <span class="bg-yellow-50 px-1 font-bold border-b border-black" id="doc-grace">30</span> days of the due date.</p>
+                        <p><strong>b. Consequences of Default:</strong> Upon default, the Lender shall have the right to declare the entire outstanding loan amount immediately due and payable, and may take legal action to recover the outstanding balance.</p>
+                    </div>
+                </section>
+
+                <!-- Section 6 -->
+                <section>
+                    <h3 class="font-bold underline uppercase mb-3 text-sm">6. Governing Law:</h3>
+                    <p>This Contract shall be governed by and construed in accordance with the laws of <strong>Federal Financial Jurisdiction</strong>.</p>
+                </section>
+            </div>
+
+            <!-- Signatures -->
+            <div class="mt-16 pt-10 border-t border-gray-300 grid grid-cols-2 gap-12 italic">
+                <div>
+                    <p class="mb-10 text-xs uppercase">On behalf of Global Trust Bank:</p>
+                    <div class="border-b border-black h-8 mb-2"></div>
+                    <p class="text-[10px] not-italic font-sans text-gray-500">AUTHORIZED SIGNATORY</p>
+                </div>
+                <div>
+                    <p class="mb-10 text-xs uppercase">On behalf of Borrower:</p>
+                    <div class="border-b border-black h-8 mb-2"></div>
+                    <p class="text-[10px] not-italic font-sans text-gray-500">BORROWER SIGNATURE / DATE</p>
+                </div>
+            </div>
+
+            <!-- Page Numbering -->
+            <div class="absolute bottom-8 right-8 text-[10px] text-gray-400 uppercase tracking-widest">
+                Page 1 of 1
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const inputs = {
+            amount: document.getElementById('input-amount'),
+            rate: document.getElementById('input-rate'),
+            installments: document.getElementById('input-installments'),
+            latefee: document.getElementById('input-latefee'),
+            grace: document.getElementById('input-grace')
+        };
+
+        const uiLabels = {
+            amount: document.getElementById('val-amount'),
+            rate: document.getElementById('val-rate'),
+            installments: document.getElementById('val-installments'),
+            latefee: document.getElementById('val-latefee'),
+            grace: document.getElementById('val-grace')
+        };
+
+        const docText = {
+            amount: document.getElementById('doc-amount'),
+            rate: document.getElementById('doc-rate'),
+            installments: document.getElementById('doc-installments'),
+            latefee: document.getElementById('doc-latefee'),
+            grace: document.getElementById('doc-grace')
+        };
+
+        const projections = {
+            monthly: document.getElementById('calc-monthly'),
+            interest: document.getElementById('calc-interest')
+        };
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+        }
+
+        function update() {
+            const amount = parseFloat(inputs.amount.value);
+            const rate = parseFloat(inputs.rate.value) / 100;
+            const months = parseInt(inputs.installments.value);
+            const lateFee = parseFloat(inputs.latefee.value);
+            const grace = parseInt(inputs.grace.value);
+
+            // Update Left UI
+            uiLabels.amount.textContent = formatCurrency(amount);
+            uiLabels.rate.textContent = (rate * 100).toFixed(1) + '%';
+            uiLabels.installments.textContent = months + ' Months';
+            uiLabels.latefee.textContent = formatCurrency(lateFee);
+            uiLabels.grace.textContent = grace + ' Days';
+
+            // Update Right Contract
+            docText.amount.textContent = formatCurrency(amount);
+            docText.rate.textContent = (rate * 100).toFixed(1) + '%';
+            docText.installments.textContent = months;
+            docText.latefee.textContent = formatCurrency(lateFee);
+            docText.grace.textContent = grace;
+
+            // Trigger Visual Flash
+            Object.values(docText).forEach(el => {
+                el.classList.add('highlight-change');
+                setTimeout(() => el.classList.remove('highlight-change'), 400);
+            });
+
+            // Financial Calculations
+            const monthlyRate = rate / 12;
+            let monthlyPayment;
+            if (monthlyRate === 0) {
+                monthlyPayment = amount / months;
+            } else {
+                monthlyPayment = (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
+            }
+            
+            const totalInterest = (monthlyPayment * months) - amount;
+
+            projections.monthly.textContent = formatCurrency(monthlyPayment);
+            projections.interest.textContent = formatCurrency(Math.max(0, totalInterest));
+        }
+
+        // Set Date
+        document.getElementById('doc-date').textContent = new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // Event Listeners
+        Object.values(inputs).forEach(input => {
+            input.addEventListener('input', update);
+        });
+
+        // Initial Run
+        update();
+    </script>
+</body>
+</html>
